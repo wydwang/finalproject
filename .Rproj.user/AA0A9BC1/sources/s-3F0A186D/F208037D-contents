@@ -1,0 +1,192 @@
+library(shiny)
+library(tidyverse)
+library(jsonlite)
+library(rvest)
+library(httr)
+library(stringr)
+
+
+html <- read_html("https://www.op.gg/champion/statistics")
+  # read the info from the websit
+
+
+champname <- html %>% 
+  html_nodes("a") %>%
+  html_nodes("div.champion-index__champion-item__name") %>% 
+  html_text()
+  # scrap all the campion names
+
+
+champurl <- html %>% 
+  html_nodes("div.champion-index__champion-list") %>% 
+  html_nodes("a") %>% 
+  html_attr("href")
+  # scrap all the corresponding urls of each champion
+
+
+position <- html %>% 
+  html_nodes("a") %>%
+  html_nodes("div.champion-index__champion-item__positions") %>% 
+  html_text() 
+  # scrap champions' available positions
+
+champnum <- c(1:length(champname))
+
+
+i = 1
+while (i <= length(champname)){
+  position[i] <-  position[i] %>% 
+    str_match_all("[A-Z][a-z]+")
+  position[[i]] = replace(position[[i]], position[[i]] == "Middle", "Mid")
+    # replace "Middle" with "Mid" for better future use
+  position[[i]] = replace(position[[i]], position[[i]] == "Bottom", "Bot")
+    # replace "Bottom" with "Bot" for better future use
+  i = i+1
+}
+  # Separate the positions
+
+
+champinfo <- tibble(name = champname, url = champurl, num = champnum, posi = position) %>% 
+  mutate(url = paste(champinfo$url, sep = ""))
+  # combine the info into a tibble
+
+
+
+# start of the real shiny app 
+ui <- navbarPage(title = "LOL Stat",
+                  # used navbar to make tabs clearer
+    tabPanel(title = "Search Stats by Name",
+            # first tab panel, set for search champion stats by name and position
+      sidebarLayout(
+        sidebarPanel(
+          textInput("cname", "Champion Name"),
+          selectInput("clist", "Select the Champion (required)", c("-",champname)),
+          selectInput("pos", "Champion Position (required)", "-"),
+            # 3 inputs, 1 optional and 2 mandatory
+          actionButton("csearch", "Search")
+            # an action button to save memory when user is changing inputs
+        ),
+               
+        mainPanel(
+          textOutput("winrate"),
+          textOutput("pickrate")
+            # 2 outputs, only show up when user clicks search button
+        )
+      )
+    ),
+    
+    tabPanel(title = "Search Champion by Condition",
+            # second tab panel, set for search champion by some conditions
+      sidebarLayout(
+        sidebarPanel(
+          radioButtons("posbox", "Choose the Position", 
+                       c("Top","Jungle", "Middle", "Bottom", "Support")),
+            # a radio button function to get desired position
+          sliderInput("cslide", "Win Rate Range", 40, 55, c(40,55)),
+            # a slider to get the desired win rate
+          actionButton("rsearch", "Search")
+            # also an action button to suppress output
+        ),
+        
+        mainPanel(
+          textOutput("champ")
+        )
+      )
+    ),
+    
+    tabPanel(title = "Overall Stat Graphs",
+            # last tab panel, set for overall stat graphs
+      sidebarLayout(
+        sidebarPanel(
+          radioButtons("lastbox", "Choose the Position", 
+                       c("Top","Jungle", "Middle", "Bottom", "Support")),
+          actionButton("gsearch", "Search")
+        ),
+        
+        mainPanel(
+          textOutput("topf"),
+          textOutput("botf")
+        )
+      )
+    )
+  )
+
+
+
+
+
+
+server <- function(input, output, session) {
+  
+  
+  observeEvent(input$cname,{
+    newlist <- champname %>% 
+      str_subset(paste("(?i)^",input$cname, sep = ""))
+    updateSelectInput(session, "clist","Select the Champion (required)", 
+                      c("-", newlist))
+  })
+    # use observeEvent function to change champion list when there's input in names
+  
+
+  observeEvent(input$clist,{
+    if (input$clist != "-"){
+      n <- champinfo[champinfo$name == input$clist,]$num
+      updateSelectInput(session, "pos","Champion Position (required)", 
+                        c("-", position[[n]]))
+    } else {
+      updateSelectInput(session, "pos","Champion Position (required)", 
+                        "-")
+    }
+  })
+    # change champion position basse on the selected champion
+    # use if-else for different situations
+  
+  
+  newurl <- reactive({
+    if (input$clist != "-"){
+    read_html(paste(champinfo[champname == input$clist,]$url, "/", tolower(input$pos), sep = "")) %>% 
+      html_nodes("div.champion-box-content") %>% 
+      html_nodes("div.champion-stats-trend-rate") %>% 
+      html_text()
+    }
+  })
+  
+  
+  
+  
+  firstout <- observeEvent(input$csearch, {
+    output$winrate <- renderText({
+      req(input$pos != "-")
+      paste(input$pos, input$clist, "'s Current Win Rate:", newurl()[1])
+    })
+    
+    output$pickrate <- renderText({
+      req(input$pos != "-")
+      paste(input$pos, input$clist, "'s Current Pick Rate:", newurl()[2])
+    })
+  })
+    
+
+  secondout <- observeEvent(input$rsearch, {
+    output$champ <- renderText({
+      "Champions that fits your choice:"
+    }) 
+  })
+  
+  
+  lastout <- observeEvent(input$gsearch, {
+    output$topf <- renderText({
+      paste("Best 5", input$lastbox, "Champions", sep = " ")
+    })
+    
+    output$botf <- renderText({
+      paste("Worst 5", input$lastbox, "Champions", sep = " ")
+    })
+  })
+
+  
+  
+}
+
+
+shinyApp(ui, server)

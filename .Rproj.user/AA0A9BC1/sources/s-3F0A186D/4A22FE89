@@ -1,0 +1,25 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1591811814960.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "4A22FE89",
+    "lastKnownWriteTime" : 1591811838,
+    "last_content_update" : 1591811838016,
+    "path" : "~/finalproject/cron.yaml",
+    "project_path" : "cron.yaml",
+    "properties" : {
+        "cursorPosition" : "25,0",
+        "scrollLine" : "0"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 7,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "yaml"
+}

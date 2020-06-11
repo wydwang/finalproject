@@ -1,0 +1,106 @@
+library(shiny)
+library(tidyverse)
+library(jsonlite)
+library(rvest)
+library(httr)
+library(stringr)
+
+html <- read_html("https://www.op.gg/champion/statistics")
+champname <- html %>% 
+  html_nodes("a") %>%
+  html_nodes("div.champion-index__champion-item__name") %>% 
+  html_text()
+champurl <- html %>% 
+  html_nodes("div.champion-index__champion-list") %>% 
+  html_nodes("a") %>% 
+  html_attr("href")
+position <- html %>% 
+  html_nodes("a") %>%
+  html_nodes("div.champion-index__champion-item__positions") %>% 
+  html_text() 
+
+i = 1
+while (i <= length(champname)){
+  position[i] <-  position[i] %>% 
+    str_match_all("[A-Z][a-z]+") 
+  position[[i]] = replace(position[[i]], position[[i]] == "Middle", "Mid")
+  position[[i]] = replace(position[[i]], position[[i]] == "Bottom", "Bot")
+  i = i+1
+}
+replace(position[[2]], position[[2]] == "Middle", "Mid")
+
+position[1]
+position[2,1]
+
+newurl <- paste("https://www.op.gg", champinfo[champname == "Aatrox",]$url, sep = "")
+
+newposrate <- read_html("https://www.op.gg/champion/ahri/statistics") %>% 
+  html_nodes("div.champion-box-content") %>% 
+  html_nodes("div.champion-stats-trend-rate") %>% 
+  html_text()
+
+m = 1
+n = 1
+rname <- character(0)
+rposi <- character(0)
+rrate <- character(0)
+rpick <- character(0)
+while (m <= length(champname)){
+  while(n <= length(champinfo$posi[[m]])){
+    reurl <- read_html(paste(champinfo$url[m], "/", tolower(champinfo$posi[[m]][n,1]), sep = ""))
+    rname <- c(rname, champinfo$name[m])
+    rposi <- c(rposi, champinfo$posi[[m]][n,1])
+    rwin <- reurl %>% 
+      html_nodes("div.champion-box-content") %>% 
+      html_nodes("div.champion-stats-trend-rate") %>% 
+      html_text()
+    rrate <- c(rrate, rwin[[1]])
+    rpick <- c(rpick, rwin[2])
+    n = n +1
+  }
+  n = 1
+  m = m+1
+}
+rname
+rposi
+
+rwin %>% 
+  str_match_all("[0-9]+.[0-9]+")
+rwin
+
+specinfo %>% 
+  filter(position == "Top")%>% 
+  arrange(desc(win_rate)) %>% 
+  head(5) %>% 
+  select(name, win_rate)
+rwin[1]
+rwin
+rwin[[1]][1,1]
+
+newurl <- reactive({
+  if (input$clist != "-"){
+    read_html(paste("https://www.op.gg", 
+                    champinfo[champname == input$clist,]$url, 
+                    "/", 
+                    tolower(input$pos), sep = "")) %>% 
+      html_nodes("div.champion-box-content") %>% 
+      html_nodes("div.champion-stats-trend-rate") %>% 
+      html_text()
+    
+    firstout <- eventReactive(input$csearch, {
+      # the outputs of first panel
+      
+      output$winrate <- renderText({
+        req(input$pos != "-")
+        paste(input$pos, input$clist, "'s Current Win Rate:", winpick()$win_rate)
+      })
+      # output the win rate of chosen champion in chosen position
+      
+      
+      
+      output$pickrate <- renderText({
+        req(input$pos != "-")
+        paste(input$pos, input$clist, "'s Current Pick Rate:", winpick()$pick_rate)
+      })
+      # output the pick rate of chosen champion in chosen position
+    })
